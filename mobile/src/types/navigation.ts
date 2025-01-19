@@ -3,6 +3,8 @@ export type RootStackParamList = {
   TopicQuiz: { topicId: string; topicName: string };
   TestMode: undefined;
   Results: { correct: number; total: number; topicId?: string };
+  Login: undefined;
+  Register: undefined;
 };
 
 export type MainTabParamList = {

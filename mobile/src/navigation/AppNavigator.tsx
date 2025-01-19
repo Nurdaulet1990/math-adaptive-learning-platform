@@ -8,7 +8,10 @@ import TopicsScreen from '../screens/TopicsScreen';
 import TestModeScreen from '../screens/TestModeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import QuizScreen from '../screens/QuizScreen';
+import LoginScreen from '../screens/auth/LoginScreen';
+import RegisterScreen from '../screens/auth/RegisterScreen';
 
+import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList, MainTabParamList } from '../types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -55,26 +58,49 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null; // Or a loading screen
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen
-          name="Main"
-          component={MainTabs}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="TopicQuiz"
-          component={QuizScreen}
-          options={({ route }) => ({
-            title: route.params.topicName,
-          })}
-        />
-        <Stack.Screen
-          name="TestMode"
-          component={QuizScreen}
-          options={{ title: 'Test Mode' }}
-        />
+        {user ? (
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainTabs}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TopicQuiz"
+              component={QuizScreen}
+              options={({ route }) => ({
+                title: route.params.topicName,
+              })}
+            />
+            <Stack.Screen
+              name="TestMode"
+              component={QuizScreen}
+              options={{ title: 'Test Mode' }}
+            />
+          </>
+        ) : (
+          <>
+            <Stack.Screen 
+              name="Login" 
+              component={LoginScreen} 
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="Register" 
+              component={RegisterScreen}
+              options={{ headerShown: false }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
