@@ -4,66 +4,94 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types/navigation';
-
-type Question = {
-  id: string;
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-};
-
-const mockQuestion: Question = {
-  id: '1',
-  question: 'When did World War II begin in Europe?',
-  options: ['1939', '1940', '1941', '1942'],
-  correctIndex: 0,
-  explanation: 'World War II began in Europe with Germany\'s invasion of Poland on September 1, 1939.',
-};
+import { useData } from '../context/DataContext';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ErrorMessage } from '../components/ErrorMessage';
+import Animated, { 
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+  ZoomIn,
+  ZoomOut,
+} from 'react-native-reanimated';
 
 export default function QuizScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TopicQuiz'>>();
+  const { questions, loading, error, submitAnswer } = useData();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [correctStreak, setCorrectStreak] = useState(0);
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  const handleAnswer = (index: number) => {
+  const currentQuestion = questions[currentQuestionIndex];
+
+  const handleAnswer = async (index: number) => {
     setSelectedOption(index);
-    setShowExplanation(true);
-
-    if (index === mockQuestion.correctIndex) {
-      const newStreak = correctStreak + 1;
-      setCorrectStreak(newStreak);
+    
+    try {
+      const isCorrect = await submitAnswer(currentQuestion.id, index);
       
-      if (newStreak >= 20) {
-        Alert.alert(
-          'Congratulations!',
-          'You\'ve completed this topic by answering 20 questions correctly in a row!',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Results', {
-                correct: newStreak,
-                total: questionsAnswered + 1,
-                topicId: route.params.topicId,
-              }),
-            },
-          ]
-        );
+      if (isCorrect) {
+        const newStreak = correctStreak + 1;
+        setCorrectStreak(newStreak);
+        
+        if (newStreak >= 20) {
+          Alert.alert(
+            'Congratulations!',
+            'You\'ve completed this topic by answering 20 questions correctly in a row!',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.navigate('Results', {
+                  correct: newStreak,
+                  total: questionsAnswered + 1,
+                  topicId: route.params?.topicId,
+                }),
+              },
+            ]
+          );
+        }
+      } else {
+        setCorrectStreak(0);
       }
-    } else {
-      setCorrectStreak(0);
+      
+      setQuestionsAnswered(prev => prev + 1);
+      setShowExplanation(true);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to submit answer. Please try again.');
     }
-    setQuestionsAnswered(prev => prev + 1);
   };
 
   const nextQuestion = () => {
     setSelectedOption(null);
     setShowExplanation(false);
-    // In a real app, we would load the next question here
+    setCurrentQuestionIndex(prev => (prev + 1) % questions.length);
   };
+
+  if (loading) {
+    return <LoadingSpinner fullscreen />;
+  }
+
+  if (error) {
+    return (
+      <ErrorMessage
+        message="Failed to load questions"
+        fullscreen
+      />
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <ErrorMessage
+        message="No questions available"
+        fullscreen
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -71,43 +99,56 @@ export default function QuizScreen() {
         <Text style={styles.streakText}>Current Streak: {correctStreak}/20</Text>
       </View>
       
-      <View style={styles.questionCard}>
-        <Text style={styles.question}>{mockQuestion.question}</Text>
+      <Animated.View 
+        style={styles.questionCard}
+        key={currentQuestion.id}
+        entering={SlideInRight}
+        exiting={SlideOutLeft}
+      >
+        <Text style={styles.question}>{currentQuestion.question}</Text>
         
         <View style={styles.optionsContainer}>
-          {mockQuestion.options.map((option, index) => (
-            <TouchableOpacity
+          {currentQuestion.options.map((option, index) => (
+            <Animated.View
               key={index}
-              style={[
-                styles.optionButton,
-                selectedOption === index && (
-                  index === mockQuestion.correctIndex
-                    ? styles.correctOption
-                    : styles.wrongOption
-                ),
-              ]}
-              onPress={() => handleAnswer(index)}
-              disabled={selectedOption !== null}
+              entering={FadeIn.delay(index * 100)}
             >
-              <Text style={[
-                styles.optionText,
-                selectedOption === index && styles.selectedOptionText
-              ]}>
-                {option}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  selectedOption === index && (
+                    index === currentQuestion.correctIndex
+                      ? styles.correctOption
+                      : styles.wrongOption
+                  ),
+                ]}
+                onPress={() => handleAnswer(index)}
+                disabled={selectedOption !== null}
+              >
+                <Text style={[
+                  styles.optionText,
+                  selectedOption === index && styles.selectedOptionText
+                ]}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           ))}
         </View>
 
         {showExplanation && (
-          <View style={styles.explanationContainer}>
-            <Text style={styles.explanationText}>{mockQuestion.explanation}</Text>
+          <Animated.View 
+            style={styles.explanationContainer}
+            entering={ZoomIn}
+            exiting={ZoomOut}
+          >
+            <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
             <TouchableOpacity style={styles.nextButton} onPress={nextQuestion}>
               <Text style={styles.nextButtonText}>Next Question</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
