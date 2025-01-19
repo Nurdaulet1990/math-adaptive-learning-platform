@@ -40,16 +40,68 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Topic {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  parentId    String?     @map("parent_id")
+  parent      Topic?      @relation("TopicToSubtopic", fields: [parentId], references: [id])
+  subtopics   Topic[]     @relation("TopicToSubtopic")
+  questions   Question[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  Progress    Progress[]
+
+  @@map("topics")
+}
+
+model Question {
+  id           String   @id @default(cuid())
+  topicId      String   @map("topic_id")
+  topic        Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  question     String
+  options      Json     // Array of options
+  correctIndex Int      @map("correct_index")
+  explanation  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("questions")
+}
+
+model Progress {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId        String   @map("topic_id")
+  topic          Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  correctStreak  Int      @default(0) @map("correct_streak")
+  questionsTotal Int      @default(0) @map("questions_total")
+  correctTotal   Int      @default(0) @map("correct_total")
+  completed      Boolean  @default(false)
+  lastAttempt    DateTime @default(now()) @map("last_attempt")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, topicId])
+  @@map("progress")
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String?
-  email         String?   @unique
-  emailVerified DateTime?
+  email         String?    @unique
+  emailVerified DateTime?  @map("email_verified")
   password      String?
   image         String?
-  role          Role      @default(USER)
+  role          Role       @default(STUDENT)
+  progress      Progress[]
   accounts      Account[]
   sessions      Session[]
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@map("users")
 }
 
 model VerificationToken {
@@ -61,7 +113,7 @@ model VerificationToken {
 }
 
 enum Role {
-  USER
-  ADMIN
+  STUDENT
   TEACHER
+  ADMIN
 }
